@@ -1,4 +1,9 @@
 
+import pickle
+import pandas as pd
+
+with open("academic_advisor_model.pkl", "rb") as f:
+    model = pickle.load(f)
 import streamlit as st
 
 st.set_page_config(
@@ -67,6 +72,18 @@ else:
     remark = "Fail"
 
 if st.button("Assess Academic Performance"):
+        model_input = pd.DataFrame(
+        [[cgpa, attendance, failed_courses]],
+        columns=["cgpa", "attendance", "failed_courses"]
+    )
+
+    model_prediction = model.predict(model_input)[0]
+
+    st.subheader("Machine Learning Prediction")
+    if model_prediction == 1:
+        st.write("Model prediction: At risk")
+    else:
+        st.write("Model prediction: Not flagged as at risk")
     st.divider()
 
     st.subheader("Course Grade")
