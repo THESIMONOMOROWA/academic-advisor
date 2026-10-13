@@ -1,9 +1,6 @@
 
 import pickle
 import pandas as pd
-
-with open("academic_advisor_model.pkl", "rb") as f:
-    model = pickle.load(f)
 import streamlit as st
 
 st.set_page_config(
@@ -12,12 +9,17 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("🎓 Academic Advisor System")
-st.write(
-    "Check your course grade and identify potential academic risks."
-)
+@st.cache_resource
+def load_model():
+    with open("academic_advisor_model.pkl", "rb") as file:
+        return pickle.load(file)
 
-st.subheader("1. Student Academic Information")
+model = load_model()
+
+st.title("🎓 Academic Advisor System")
+st.write("Check your grades and academic risk.")
+
+st.subheader("Student Academic Information")
 
 cgpa = st.number_input(
     "Current GPA / CGPA (out of 5.0)",
@@ -35,21 +37,19 @@ attendance = st.number_input(
 )
 
 failed_courses = st.number_input(
-    "Number of failed courses / carryovers",
+    "Failed courses / carryovers",
     min_value=0,
     max_value=100,
-    value=0,
-    step=1
+    value=0
 )
 
-st.subheader("2. Course Grading System")
+st.subheader("Course Grading System")
 
 score = st.number_input(
-    "Enter course score (0–100)",
+    "Course score (0–100)",
     min_value=0,
     max_value=100,
-    value=70,
-    step=1
+    value=70
 )
 
 if score >= 70:
@@ -71,62 +71,48 @@ else:
     grade = "F"
     remark = "Fail"
 
+st.write(f"**Grade:** {grade}")
+st.write(f"**Remark:** {remark}")
+
 if st.button("Assess Academic Performance"):
-        model_input = pd.DataFrame(
-        [[cgpa, attendance, failed_courses]],
-        columns=["cgpa", "attendance", "failed_courses"]
-    )
-
-    model_prediction = model.predict(model_input)[0]
-
-    st.subheader("Machine Learning Prediction")
-    if model_prediction == 1:
-        st.write("Model prediction: At risk")
-    else:
-        st.write("Model prediction: Not flagged as at risk")
-    st.divider()
-
-    st.subheader("Course Grade")
-    st.metric("Letter Grade", grade)
-    st.write(f"**Score:** {score}/100")
-    st.write(f"**Remark:** {remark}")
-
-    # Academic risk assessment
     risks = []
 
     if cgpa < 2.5:
-        risks.append(
-            f"CGPA is below 2.5 (current: {cgpa:.1f})."
-        )
+        risks.append("CGPA is below 2.5.")
 
     if attendance < 80:
-        risks.append(
-            f"Attendance is below 80% (current: {attendance}%)."
-        )
+        risks.append("Attendance is below 80%.")
 
     if failed_courses > 3:
-        risks.append(
-            f"You have {failed_courses} failed courses/carryovers. "
-            "The maximum allowed before this risk flag is 3."
-        )
+        risks.append("You have more than 3 failed courses/carryovers.")
 
     st.subheader("Academic Risk Assessment")
 
     if risks:
         st.error("⚠️ AT RISK")
-        st.write("The following conditions require attention:")
-
         for risk in risks:
             st.write(f"- {risk}")
-
-        st.info(
-            "Recommended action: Meet your academic adviser, "
-            "improve attendance, address outstanding courses, "
-            "and work on improving your CGPA."
-        )
     else:
         st.success("✅ NOT FLAGGED AS AT RISK")
-        st.write(
-            "You meet all three academic-risk thresholds. "
-            "Continue working toward better academic performance."
+
+    st.subheader("Machine Learning Prediction")
+
+    try:
+        model_input = pd.DataFrame(
+            [[cgpa, attendance, failed_courses]],
+            columns=["cgpa", "attendance", "failed_courses"]
+        )
+
+        prediction = model.predict(model_input)[0]
+
+        if prediction == 1:
+            st.warning("Model prediction: At risk")
+        else:
+            st.success("Model prediction: Not flagged as at risk")
+
+    except Exception as error:
+        st.error(f"Model prediction failed: {error}")
+        st.info(
+            "Check that academic_advisor_model.pkl was retrained "
+            "using the three inputs shown above."
         )
